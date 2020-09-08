@@ -1,0 +1,13 @@
+[package]
+name = "dtw"
+version = "0.1.0"
+authors = ["ban-m <ban-m@g.ecc.u-tokyo.ac.jp>"]
+
+[dependencies]
+num = "*"
+rand = "*"
+order-stat = "0.1"
+
+[[bench]]
+name = "sub"
+path = "./benches/bench.rs"

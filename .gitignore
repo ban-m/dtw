@@ -1,0 +1,7 @@
+pdf/
+png/
+result/
+target/
+*.lock
+.*
+data/

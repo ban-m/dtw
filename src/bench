@@ -1,0 +1,48 @@
+
+running 36 tests
+test dtw_chiba::band_test ... ignored
+test dtw_chiba::dp_to_matrix_test ... ignored
+test dtw_chiba::err_detect1 ... ignored
+test dtw_chiba::err_detect2 ... ignored
+test dtw_chiba::err_detect3 ... ignored
+test dtw_chiba::err_detect4 ... ignored
+test dtw_chiba::err_detect5 ... ignored
+test dtw_chiba::flat_test ... ignored
+test dtw_chiba::inversivity ... ignored
+test dtw_chiba::inversivity2 ... ignored
+test dtw_chiba::matrix_to_dp_test ... ignored
+test dtw_chiba::phony_test ... ignored
+test dtw_chiba::short_band ... ignored
+test dtw_chiba::spike_test ... ignored
+test dtw_chiba::too_large_band ... ignored
+test normalize::test ... ignored
+test test::test_dtw ... ignored
+test test::test_dtw2 ... ignored
+test test::test_dtw3 ... ignored
+test test::test_dtw4 ... ignored
+test test::test_dtw5 ... ignored
+test test::test_dtw6 ... ignored
+test test::test_dtw7 ... ignored
+test test::test_dtw8 ... ignored
+test test::test_fastdtw_long ... ignored
+test test::test_fastdtw_long_not_powerof2 ... ignored
+test test::test_fastdtw_small ... ignored
+test test::test_fastdtw_sub_large ... ignored
+test test::test_fastdtw_sub_large_not_pow2 ... ignored
+test test::test_fastdtw_sub_small ... ignored
+test test::test_how_good ... ignored
+test test::test_how_good2 ... ignored
+test test::test_how_good3 ... ignored
+test test::test_how_good4 ... ignored
+test test::test_how_good5 ... ignored
+test test::test_of_test ... ignored
+
+test result: ok. 0 passed; 0 failed; 36 ignored; 0 measured; 0 filtered out
+
+
+running 8 tests
+test tests::fastdtw_ref100_query1000 ... bench:  32,800,033 ns/iter (+/- 232,519)
+test tests::fastdtw_ref100_query500  ... bench:  24,260,826 ns/iter (+/- 186,135)
+test tests::fastdtw_ref10_query1000  ... bench:  25,643,589 ns/iter (+/- 203,981)
+test tests::fastdtw_ref10_query500   ... bench:  12,738,030 ns/iter (+/- 109,415)
+test tests::subdtw_ref100_query1000  ... 
