@@ -12,7 +12,6 @@ pub enum NormalizeType{
     MaxMin,
 }
 fn z_normalize(xs:&[f32])->Vec<f32>{
-    use std::f32;
     let len = xs.len() as f64;
     let (sum,sqsum) : (f64,f64) = xs.iter()
         .fold((0.,0.),|(sum,sqsum),&x|{let x = x as f64;(sum+x,sqsum+x*x)});
