@@ -1,56 +1,82 @@
-
+use super::TRACE;
 use num::Float;
 use num::Num;
 use std::collections::HashMap;
-/// O(N) implementation of dynamic time warping.
-///
-///
-pub fn fast_dtw<D,F,T>(x1:&[D],x2:&[D],dist:&F,radius:usize,is_sub:bool)->
-    Result<(T,(Vec<usize>,Vec<usize>),usize),String>
-    where F:Fn(&D,&D) -> T,T:Float,D:Num+Copy
-// when is_sub is true, x1 is query and x2 is reference.
+/// O(N) time implementation of approximate dynamic time warping.
+pub fn fast_dtw<D, F, T>(
+    x1: &[D],
+    x2: &[D],
+    dist: &F,
+    radius: usize,
+    is_sub: bool,
+) -> Result<(T, TRACE, usize), String>
+where
+    F: Fn(&D, &D) -> T,
+    T: Float,
+    D: Num + Copy, // when is_sub is true, x1 is query and x2 is reference.
 {
     let min_length = radius + 2;
-    if x1.len() < min_length || x2.len() < min_length{
+    if x1.len() < min_length || x2.len() < min_length {
         // normal dtw.
         // full window
-        let window = (0..x1.len()).map(|i| (0..x2.len()).map(|j|(i+1,j+1)).collect())
-            .fold(Vec::with_capacity(min_length*min_length),|mut acc,mut x|{acc.append(&mut x);acc});
-        let res = window_dtw(x1,x2,dist,&window,is_sub);
-        res
-    }else{
+        let window = (0..x1.len())
+            .map(|i| (0..x2.len()).map(|j| (i + 1, j + 1)).collect())
+            .fold(
+                Vec::with_capacity(min_length * min_length),
+                |mut acc, mut x| {
+                    acc.append(&mut x);
+                    acc
+                },
+            );
+        window_dtw(x1, x2, dist, &window, is_sub)
+    } else {
         // recursive call
         let x1_shrinked = reduce_by_half(x1);
         let x2_shrinked = reduce_by_half(x2);
-        let (_score,(x1path,x2path),_location) = fast_dtw(&x1_shrinked,&x2_shrinked,dist,radius,is_sub)?;
-        let window = expand_window(&x1path,&x2path,x2.len(),x1.len(),radius);
-        window_dtw(x1,x2,dist,&window,is_sub)
+        let (_score, (x1path, x2path), _location) =
+            fast_dtw(&x1_shrinked, &x2_shrinked, dist, radius, is_sub)?;
+        let window = expand_window(&x1path, &x2path, x2.len(), x1.len(), radius);
+        window_dtw(x1, x2, dist, &window, is_sub)
     }
 }
 
-fn window_dtw<D,F,T>(x1:&[D],x2:&[D],dist:&F,window:&[(usize,usize)],is_sub:bool) -> 
-    Result<(T,(Vec<usize>,Vec<usize>),usize),String>
-    where F:Fn(&D,&D) -> T,T:Float,D:Num+Copy{
-    let mut dp = HashMap::new();//dp table. This map ontains 1:optimal score,2:traceback information
-    for &(i,j) in window{
-//        eprint!("({},{})->",i,j);
-        let d = dist(&x1[i-1],&x2[j-1]);
-        let paths = get_previous_scores(&dp,i,j,is_sub);
-        let opt = get_min(paths,d);
-        dp.insert((i,j),opt);
-//        eprintln!("{:?}",opt.0.to_f32());
+fn window_dtw<D, F, T>(
+    x1: &[D],
+    x2: &[D],
+    dist: &F,
+    window: &[(usize, usize)],
+    is_sub: bool,
+) -> Result<(T, TRACE, usize), String>
+where
+    F: Fn(&D, &D) -> T,
+    T: Float,
+    D: Num + Copy,
+{
+    let mut dp = HashMap::new(); //dp table. This map ontains 1:optimal score,2:traceback information
+    for &(i, j) in window {
+        //        eprint!("({},{})->",i,j);
+        let d = dist(&x1[i - 1], &x2[j - 1]);
+        let paths = get_previous_scores(&dp, i, j, is_sub);
+        let opt = get_min(paths, d);
+        dp.insert((i, j), opt);
+        //        eprintln!("{:?}",opt.0.to_f32());
     }
-    let (opt,max_position) = if is_sub{
-        get_optimal(&dp,&window,x1.len())
-    }else{
-        (dp.get(&(x1.len(),x2.len())).ok_or("error occured while extracting optimal score".to_string())?.0,x2.len())
+    let (opt, max_position) = if is_sub {
+        get_optimal(&dp, &window, x1.len())
+    } else {
+        (
+            dp.get(&(x1.len(), x2.len()))
+                .ok_or_else(|| "error occured while extracting optimal score".to_string())?
+                .0,
+            x2.len(),
+        )
     };
-    let (start_position,x1path,x2path) = get_paths(&dp,x1.len(),max_position);
+    let (start_position, x1path, x2path) = get_paths(&dp, x1.len(), max_position);
     // for (&i,&j) in x1path.iter().zip(x2path.iter()){
     //     eprint!("({},{})->",i,j);
     // }
     // eprintln!("finish");
-    Ok((opt,(x1path,x2path),start_position))
+    Ok((opt, (x1path, x2path), start_position))
 }
 
 // #[inline]
@@ -60,58 +86,90 @@ fn window_dtw<D,F,T>(x1:&[D],x2:&[D],dist:&F,window:&[(usize,usize)],is_sub:bool
 // }
 
 #[inline]
-fn get_previous_scores<F>(dp:&HashMap<(usize,usize),(F,usize,usize)>,i:usize,j:usize,is_sub:bool)->
-    [(F,usize,usize);3] where F:Float
+fn get_previous_scores<F>(
+    dp: &HashMap<(usize, usize), (F, usize, usize)>,
+    i: usize,
+    j: usize,
+    is_sub: bool,
+) -> [(F, usize, usize); 3]
+where
+    F: Float,
 {
-    let p1 = get_score(&dp,i-1,j-1,is_sub);// "match" path
-    let p2 = get_score(&dp,i-1,j,is_sub);//"insert" path
-    let p3 = get_score(&dp,i,j-1,is_sub);//"gap" path
-    [(p1,i-1,j-1),(p2,i-1,j),(p3,i,j-1)]
+    let p1 = get_score(&dp, i - 1, j - 1, is_sub); // "match" path
+    let p2 = get_score(&dp, i - 1, j, is_sub); //"insert" path
+    let p3 = get_score(&dp, i, j - 1, is_sub); //"gap" path
+    [(p1, i - 1, j - 1), (p2, i - 1, j), (p3, i, j - 1)]
 }
 
 #[inline]
-fn get_score<F>(dp:&HashMap<(usize,usize),(F,usize,usize)>,i:usize,j:usize,is_sub:bool)->F where F:Float{
+fn get_score<F>(
+    dp: &HashMap<(usize, usize), (F, usize, usize)>,
+    i: usize,
+    j: usize,
+    is_sub: bool,
+) -> F
+where
+    F: Float,
+{
     // get the optimal scores of previous cells
-    match dp.get(&(i,j)){
-        None if i == 0 && j == 0 && !is_sub => F::zero(),// initial score of full dtw
-        None if i == 0 && is_sub => F::zero(), // initial score of sub dtw
+    match dp.get(&(i, j)) {
+        None if i == 0 && j == 0 && !is_sub => F::zero(), // initial score of full dtw
+        None if i == 0 && is_sub => F::zero(),            // initial score of sub dtw
         None => Float::infinity(),
-        Some(entry) => entry.0
+        Some(entry) => entry.0,
     }
 }
 
 #[inline]
-fn get_min<F>(paths:[(F,usize,usize);3],prev:F)->(F,usize,usize) where F:Float{
-    let opt = if paths[0].0 <= paths[1].0 && paths[0].0 <= paths[2].0{
+fn get_min<F>(paths: [(F, usize, usize); 3], prev: F) -> (F, usize, usize)
+where
+    F: Float,
+{
+    let opt = if paths[0].0 <= paths[1].0 && paths[0].0 <= paths[2].0 {
         paths[0]
-    }else if paths[1].0 <= paths[0].0 && paths[1].0 <= paths[2].0{
+    } else if paths[1].0 <= paths[0].0 && paths[1].0 <= paths[2].0 {
         paths[1]
-    }else{
+    } else {
         paths[2]
     };
-    if opt.0.is_infinite(){
+    if opt.0.is_infinite() {
         opt
-    }else{
-        (opt.0+prev,opt.1,opt.2)
+    } else {
+        (opt.0 + prev, opt.1, opt.2)
     }
 }
 
 #[inline]
-fn get_optimal<F>(dp:&HashMap<(usize,usize),(F,usize,usize)>,window:&[(usize,usize)],x1len:usize)->(F,usize)
-    where F:Float
+fn get_optimal<F>(
+    dp: &HashMap<(usize, usize), (F, usize, usize)>,
+    window: &[(usize, usize)],
+    x1len: usize,
+) -> (F, usize)
+where
+    F: Float,
 {
-    window.iter().filter(|&&(i,_)| i==x1len)
-        .filter_map(|&(i,j)| dp.get(&(i,j)).map(|&(opt,_,_)|(opt,j)))
-        .fold((Float::infinity(),0),|acc,x| if acc.0 < x.0 { acc } else { x })
+    window
+        .iter()
+        .filter(|&&(i, _)| i == x1len)
+        .filter_map(|&(i, j)| dp.get(&(i, j)).map(|&(opt, _, _)| (opt, j)))
+        .fold(
+            (Float::infinity(), 0),
+            |acc, x| if acc.0 < x.0 { acc } else { x },
+        )
 }
 
 #[inline]
-fn get_paths<F>(dp:&HashMap<(usize,usize),(F,usize,usize)>,i:usize,j:usize)->(usize,Vec<usize>,Vec<usize>)
-    where F:Float
+fn get_paths<F>(
+    dp: &HashMap<(usize, usize), (F, usize, usize)>,
+    i: usize,
+    j: usize,
+) -> (usize, Vec<usize>, Vec<usize>)
+where
+    F: Float,
 {
-    let (mut x1path,mut x2path)  = (vec![],vec![]);
-    let (mut i,mut j) = (i,j);
-    while let Some(&(_,x1,x2)) = dp.get(&(i,j)){
+    let (mut x1path, mut x2path) = (vec![], vec![]);
+    let (mut i, mut j) = (i, j);
+    while let Some(&(_, x1, x2)) = dp.get(&(i, j)) {
         x1path.push(x1);
         x2path.push(x2);
         i = x1;
@@ -119,46 +177,83 @@ fn get_paths<F>(dp:&HashMap<(usize,usize),(F,usize,usize)>,i:usize,j:usize)->(us
     }
     x1path.reverse();
     x2path.reverse();
-    (j,x1path,x2path)
+    (j, x1path, x2path)
 }
 
 #[inline]
-pub fn reduce_by_half<D>(xs:&[D]) -> Vec<D> where D:Num+Copy{
+pub fn reduce_by_half<D>(xs: &[D]) -> Vec<D>
+where
+    D: Num + Copy,
+{
     let two = D::one() + D::one();
-    (0..xs.len()/2).map(|i|(xs[2*i]+xs[2*i+1])/two).collect()
+    (0..xs.len() / 2)
+        .map(|i| (xs[2 * i] + xs[2 * i + 1]) / two)
+        .collect()
 }
 
-fn expand_window(x1path:&[usize],x2path:&[usize],x2len:usize,x1len:usize,radius:usize)-> Vec<(usize,usize)>{
+fn expand_window(
+    x1path: &[usize],
+    x2path: &[usize],
+    x2len: usize,
+    x1len: usize,
+    radius: usize,
+) -> Vec<(usize, usize)> {
     debug_assert!(x1path.len() == x2path.len());
-//    print_path(x1path,x2path);
-    let mapped_path = x1path.iter().zip(x2path.iter()).map(|(&i,&j)|map_to_original(i,j))
-        .fold(vec![],|mut acc,mut x|{acc.append(&mut x);acc});
-    let mut region:Vec<Option<(usize,usize)>> = vec![None;x1len+1];
-    for (i,j) in mapped_path{
+    //    print_path(x1path,x2path);
+    let mapped_path = x1path
+        .iter()
+        .zip(x2path.iter())
+        .map(|(&i, &j)| map_to_original(i, j))
+        .fold(vec![], |mut acc, mut x| {
+            acc.append(&mut x);
+            acc
+        });
+    let mut region: Vec<Option<(usize, usize)>> = vec![None; x1len + 1];
+    for (i, j) in mapped_path {
         let start = if i > radius { i - radius } else { 1 };
-        let end = if i + radius <= x1len { i + radius } else { x1len+1 };
-        for k in start..end{
+        let end = if i + radius <= x1len {
+            i + radius
+        } else {
+            x1len + 1
+        };
+        for k in start..end {
             let left = if j > radius { j - radius } else { 1 };
-            let right = if j + radius <= x2len { j + radius }else{x2len+1};
-            match region[k]{
-                Some(prev) => region[k] = Some((prev.0,right)),
-                None => region[k] = Some((left,right)),
+            let right = if j + radius <= x2len {
+                j + radius
+            } else {
+                x2len + 1
+            };
+            match region[k] {
+                Some(prev) => region[k] = Some((prev.0, right)),
+                None => region[k] = Some((left, right)),
             };
         }
     }
-    (1..(x1len+1)).filter_map(|k|region[k].map(|range|(k,range)))
-        .map(|(k,range)|get_window(k,range,x2len))
-        .fold(vec![],|mut acc,mut x|{acc.append(&mut x);acc})
+    (1..(x1len + 1))
+        .filter_map(|k| region[k].map(|range| (k, range)))
+        .map(|(k, range)| get_window(k, range, x2len))
+        .fold(vec![], |mut acc, mut x| {
+            acc.append(&mut x);
+            acc
+        })
 }
 
 #[inline]
-fn map_to_original(i:usize,j:usize)->Vec<(usize,usize)>{
-    vec![(2*i,2*j),(2*i+1,2*j),(2*i,2*j+1),(2*i+1,2*j+1)]
+fn map_to_original(i: usize, j: usize) -> Vec<(usize, usize)> {
+    vec![
+        (2 * i, 2 * j),
+        (2 * i + 1, 2 * j),
+        (2 * i, 2 * j + 1),
+        (2 * i + 1, 2 * j + 1),
+    ]
 }
 
 #[inline]
-fn get_window(k:usize,range:(usize,usize),x2len:usize)->Vec<(usize,usize)>{
-    (range.0..range.1).filter(|&e| 0 < e && e <= x2len ).map(|e|(k,e)).collect()
+fn get_window(k: usize, range: (usize, usize), x2len: usize) -> Vec<(usize, usize)> {
+    (range.0..range.1)
+        .filter(|&e| 0 < e && e <= x2len)
+        .map(|e| (k, e))
+        .collect()
 }
 
 // #[inline]
@@ -181,7 +276,6 @@ fn get_window(k:usize,range:(usize,usize),x2len:usize)->Vec<(usize,usize)>{
 //     }
 // }
 
-
 // #[inline]
 // fn print_window_with_interval(window:&[(usize,usize)],x1len:usize,x2start:usize,gap:usize){
 //     use std::collections::HashSet;
@@ -197,8 +291,6 @@ fn get_window(k:usize,range:(usize,usize),x2len:usize)->Vec<(usize,usize)>{
 //         eprintln!();
 //     }
 // }
-
-
 
 // #[inline]
 // fn expand_line(i:usize,j:usize,x2len:usize,x1len:usize,radius:usize)->Vec<(usize,usize)>{
